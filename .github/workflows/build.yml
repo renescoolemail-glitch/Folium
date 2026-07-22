@@ -1,0 +1,47 @@
+name: Build Unsigned IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Resolve Swift Package Dependencies
+        run: |
+          xcodebuild -resolvePackageDependencies -project Folium.xcodeproj -scheme Folium
+
+      - name: Build Archive
+        run: |
+          xcodebuild archive \
+            -project Folium.xcodeproj \
+            -scheme Folium \
+            -destination "generic/platform=iOS" \
+            -archivePath build/Folium.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            PROVISIONING_PROFILE_SPECIFIER=""
+
+      - name: Package into IPA
+        run: |
+          mkdir -p build/Payload
+          cp -r build/Folium.xcarchive/Products/Applications/*.app build/Payload/
+          cd build
+          zip -r Folium.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Folium-IPA
+          path: build/Folium.ipa
